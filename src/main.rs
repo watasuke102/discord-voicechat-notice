@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
-use serenity::framework::StandardFramework;
 use serenity::{
     async_trait,
-    model::{channel::Message, gateway::Ready, id::GuildId, voice::VoiceState},
+    framework::StandardFramework,
+    model::{channel::Message, gateway::Ready, id::ChannelId, id::GuildId, voice::VoiceState},
     prelude::*,
+    utils::{EmbedMessageBuilding, MessageBuilder},
 };
 use std::fs::File;
 use std::io::BufReader;
@@ -23,15 +24,24 @@ impl EventHandler for Handler {
     }
     async fn voice_state_update(
         &self,
-        _ctx: Context,
+        ctx: Context,
         guild_id: Option<GuildId>,
         _: Option<VoiceState>,
         new: VoiceState,
     ) {
         println!("*********************");
+        println!("ctx: {:?}", ctx.http);
         println!("guild_id: {:?}", guild_id);
-        if let Some(n) = &new.member {
-            println!("[new] {:#?}", n.user);
+        if let Some(u) = &new.member {
+            println!("Builded");
+            let msg = MessageBuilder::new()
+                .push("Joined")
+                .mention(&u.user.id)
+                .build();
+            println!("channel_id: {:?}", new.channel_id);
+            if let Some(c) = &new.channel_id {
+                c.say(&ctx.http, "test").await;
+            }
         }
     }
 }
@@ -65,6 +75,10 @@ async fn main() {
         .framework(StandardFramework::new())
         .await
         .expect("ERROR: failed to create client");
+
+    let mut data = client.data.write().await;
+    data.insert::<Settings>(settings);
+
     if let Err(why) = client.start().await {
         println!("ERROR: client error: {:#?}", why);
     }
