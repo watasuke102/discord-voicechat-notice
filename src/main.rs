@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serenity::{
     async_trait,
     framework::StandardFramework,
-    model::{channel::Message, gateway::Ready, id::ChannelId, id::GuildId, voice::VoiceState},
+    model::{gateway::Ready, id::ChannelId, id::GuildId, voice::VoiceState},
     prelude::*,
     utils::{EmbedMessageBuilding, MessageBuilder},
 };
@@ -13,9 +13,6 @@ use std::option::Option;
 struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
-    async fn message(&self, _ctx: Context, _new_message: Message) {
-        println!("{:?}", _new_message);
-    }
     async fn ready(&self, _: Context, ready: Ready) {
         println!(
             "Info: connected {} [version: {}]",
@@ -25,23 +22,27 @@ impl EventHandler for Handler {
     async fn voice_state_update(
         &self,
         ctx: Context,
-        guild_id: Option<GuildId>,
-        _: Option<VoiceState>,
+        _guild_id: Option<GuildId>,
+        old: Option<VoiceState>,
         new: VoiceState,
     ) {
-        println!("*********************");
-        println!("ctx: {:?}", ctx.http);
-        println!("guild_id: {:?}", guild_id);
-        if let Some(u) = &new.member {
-            println!("Builded");
-            let msg = MessageBuilder::new()
-                .push("Joined")
-                .mention(&u.user.id)
-                .build();
-            println!("channel_id: {:?}", new.channel_id);
-            if let Some(c) = &new.channel_id {
-                c.say(&ctx.http, "test").await;
-            }
+        // oldがSomeならLeave、NoneであればJoin
+        let msg = MessageBuilder::new()
+            .push(if let Some(u) = &new.member {
+                &u.user.name
+            } else {
+                "someone"
+            })
+            .push(if let Some(_) = old {
+                " leaved"
+            } else {
+                " joined"
+            })
+            .push(" VC")
+            .build();
+        let c = ChannelId(0);
+        if let Err(e) = c.say(&ctx.http, msg).await {
+            println!("ERROR: failed to send an message => {}", e);
         }
     }
 }
@@ -76,8 +77,8 @@ async fn main() {
         .await
         .expect("ERROR: failed to create client");
 
-    let mut data = client.data.write().await;
-    data.insert::<Settings>(settings);
+    //let mut data = client.data.write().await;
+    //data.insert::<Settings>(settings);
 
     if let Err(why) = client.start().await {
         println!("ERROR: client error: {:#?}", why);
