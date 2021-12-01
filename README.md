@@ -9,3 +9,6 @@
 1. `cp sample-env.json env.json`
 1. env.json を編集する
 1. `cargo run --release`
+
+## LICENSE
+MIT SUSHI-WARE LICENSE
