@@ -21,57 +21,54 @@ impl EventHandler for Handler {
     async fn voice_state_update(
         &self,
         ctx: Context,
-        _guild_id: Option<GuildId>,
+        guild_id: Option<GuildId>,
         old: Option<VoiceState>,
         new: VoiceState,
     ) {
-        println!("{:?}", ctx.http);
         let data = ctx.data.read().await;
-        if let Some(id) = data.get::<LogChannelId>() {
-            match id.clone().parse() {
-                Ok(id) => {
-                    let ch = ChannelId(id);
-                    let channel_name = ch.name(ctx.cache.as_ref()).await;
-                    let channel_name = channel_name.unwrap_or("Unknown channel".to_string());
-                    if let Err(e) = ch
-                        .send_message(&ctx.http, |m: &mut CreateMessage| {
-                            // メッセージ作成
-                            m.embed(|e: &mut CreateEmbed| {
-                                e.title("Voice Channel Notice");
-                                // oldがSomeならLeave、NoneであればJoin
-                                if let Some(_) = old {
-                                    e.description("Someone leaved VC");
-                                    e.color(Colour(0xed2424));
-                                } else {
-                                    e.description("Someone joined VC");
-                                    e.color(Colour(0x2aed24));
-                                }
-                                // アバターの設定
-                                if let Some(u) = &new.member {
-                                    e.field(
-                                        &u.user.name,
-                                        format!("Channel: {}", channel_name),
-                                        false,
-                                    );
-                                    if let Some(avatar) = &u.user.avatar {
-                                        let url = format!(
-                                            "https://cdn.discordapp.com/avatars/{}/{}.webp",
-                                            u.user.id, avatar
-                                        );
-                                        e.thumbnail(url);
-                                    }
-                                } else {
-                                }
-                                e
-                            });
-                            m
-                        })
-                        .await
-                    {
-                        println!("ERROR: failed to send an message => {}", e);
-                    }
+        if let Some(data) = data.get::<Settings>() {
+            let data = data.clone();
+            // 設定に記載されたサーバーと違ったら
+            if let Some(id) = guild_id {
+                if id != data.guild_id {
+                    return;
                 }
-                Err(e) => println!("ERROR: failed to parse channel ID => {}", e),
+            }
+            let ch = ChannelId(data.log_channel_id);
+            let channel_name = ch.name(ctx.cache.as_ref()).await;
+            let channel_name = channel_name.unwrap_or("Unknown channel".to_string());
+            if let Err(e) = ch
+                .send_message(&ctx.http, |m: &mut CreateMessage| {
+                    // メッセージ作成
+                    m.embed(|e: &mut CreateEmbed| {
+                        e.title("Voice Channel Notice");
+                        // oldがSomeならLeave、NoneであればJoin
+                        if let Some(_) = old {
+                            e.description("Someone leaved VC");
+                            e.color(Colour(0xed2424));
+                        } else {
+                            e.description("Someone joined VC");
+                            e.color(Colour(0x2aed24));
+                        }
+                        // アバターの設定
+                        if let Some(u) = &new.member {
+                            e.field(&u.user.name, format!("Channel: {}", channel_name), false);
+                            if let Some(avatar) = &u.user.avatar {
+                                let url = format!(
+                                    "https://cdn.discordapp.com/avatars/{}/{}.webp",
+                                    u.user.id, avatar
+                                );
+                                e.thumbnail(url);
+                            }
+                        } else {
+                        }
+                        e
+                    });
+                    m
+                })
+                .await
+            {
+                println!("ERROR: failed to send an message => {}", e);
             }
         }
     }
@@ -80,12 +77,12 @@ impl EventHandler for Handler {
 #[derive(Serialize, Deserialize, Debug)]
 struct Settings {
     discord_token: String,
-    log_channel_id: String,
+    guild_id: u64,
+    log_channel_id: u64,
 }
 
-struct LogChannelId;
-impl TypeMapKey for LogChannelId {
-    type Value = Arc<String>;
+impl TypeMapKey for Settings {
+    type Value = Arc<Settings>;
 }
 
 #[tokio::main]
@@ -94,11 +91,13 @@ async fn main() {
         .expect("cannot read `env.json`: did you create this file? try `cp sample-env.json env.json` and edit it.");
     let settings: Settings = serde_json::from_reader(BufReader::new(file)).unwrap();
     {
-        let empty = String::new();
-        if settings.discord_token == empty {
+        if settings.discord_token == String::new() {
             panic!("ERROR: `discord_token` in env.json is empty");
         }
-        if settings.log_channel_id == empty {
+        if settings.guild_id == 0 {
+            panic!("ERROR: `guild_id` in env.json is empty");
+        }
+        if settings.log_channel_id == 0 {
             panic!("ERROR: `log_channel_id` in env.json is empty");
         }
     }
@@ -110,7 +109,7 @@ async fn main() {
         .expect("ERROR: failed to create client");
     {
         let mut data = client.data.write().await;
-        data.insert::<LogChannelId>(Arc::new(settings.log_channel_id));
+        data.insert::<Settings>(Arc::new(settings));
     }
 
     if let Err(why) = client.start().await {
