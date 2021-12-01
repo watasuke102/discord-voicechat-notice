@@ -1,3 +1,4 @@
+use chrono::{FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use serenity::{
     async_trait,
@@ -61,7 +62,9 @@ impl EventHandler for Handler {
                                 e.thumbnail(url);
                             }
                         } else {
+                            e.field("Unknown user", format!("Channel: {}", channel_name), false);
                         }
+                        e.timestamp(&Utc::now().with_timezone(&FixedOffset::east(9 * 3600)));
                         e
                     });
                     m
