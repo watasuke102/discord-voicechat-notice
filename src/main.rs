@@ -4,11 +4,9 @@ use serenity::{
     framework::StandardFramework,
     model::{gateway::Ready, id::ChannelId, id::GuildId, voice::VoiceState},
     prelude::*,
-    utils::{EmbedMessageBuilding, MessageBuilder},
+    utils::MessageBuilder,
 };
-use std::fs::File;
-use std::io::BufReader;
-use std::option::Option;
+use std::{fs::File, io::BufReader, option::Option, sync::Arc};
 
 struct Handler;
 #[async_trait]
@@ -26,23 +24,36 @@ impl EventHandler for Handler {
         old: Option<VoiceState>,
         new: VoiceState,
     ) {
-        // oldがSomeならLeave、NoneであればJoin
         let msg = MessageBuilder::new()
             .push(if let Some(u) = &new.member {
                 &u.user.name
             } else {
                 "someone"
             })
+            // oldがSomeならLeave、NoneであればJoin
             .push(if let Some(_) = old {
-                " leaved"
+                " leaved "
             } else {
-                " joined"
+                " joined "
             })
-            .push(" VC")
+            // チャンネルIDがなかったら0にする（いいのかな）
+            .channel(if let Some(c) = new.channel_id {
+                c
+            } else {
+                ChannelId(0)
+            })
             .build();
-        let c = ChannelId(0);
-        if let Err(e) = c.say(&ctx.http, msg).await {
-            println!("ERROR: failed to send an message => {}", e);
+        let data = ctx.data.read().await;
+        if let Some(id) = data.get::<LogChannelId>() {
+            match id.clone().parse() {
+                Ok(id) => {
+                    let ch = ChannelId(id);
+                    if let Err(e) = ch.say(&ctx.http, msg).await {
+                        println!("ERROR: failed to send an message => {}", e);
+                    }
+                }
+                Err(e) => println!("ERROR: failed to parse channel ID => {}", e),
+            }
         }
     }
 }
@@ -50,8 +61,12 @@ impl EventHandler for Handler {
 #[derive(Serialize, Deserialize, Debug)]
 struct Settings {
     discord_token: String,
-    voice_channel_id: String,
     log_channel_id: String,
+}
+
+struct LogChannelId;
+impl TypeMapKey for LogChannelId {
+    type Value = Arc<String>;
 }
 
 #[tokio::main]
@@ -64,21 +79,20 @@ async fn main() {
         if settings.discord_token == empty {
             panic!("ERROR: `discord_token` in env.json is empty");
         }
-        if settings.voice_channel_id == empty {
-            panic!("ERROR: `voice_id` in env.json is empty");
-        }
         if settings.log_channel_id == empty {
             panic!("ERROR: `log_channel_id` in env.json is empty");
         }
     }
+    // クライアント生成と設定の読み込み
     let mut client = Client::builder(&settings.discord_token)
         .event_handler(Handler)
         .framework(StandardFramework::new())
         .await
         .expect("ERROR: failed to create client");
-
-    //let mut data = client.data.write().await;
-    //data.insert::<Settings>(settings);
+    {
+        let mut data = client.data.write().await;
+        data.insert::<LogChannelId>(Arc::new(settings.log_channel_id));
+    }
 
     if let Err(why) = client.start().await {
         println!("ERROR: client error: {:#?}", why);
