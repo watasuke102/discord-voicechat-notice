@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serenity::{
     async_trait,
+    builder::{CreateEmbed, CreateMessage},
     framework::StandardFramework,
     model::{gateway::Ready, id::ChannelId, id::GuildId, voice::VoiceState},
     prelude::*,
-    utils::MessageBuilder,
+    utils::Colour,
 };
 use std::{fs::File, io::BufReader, option::Option, sync::Arc};
 
@@ -24,31 +25,49 @@ impl EventHandler for Handler {
         old: Option<VoiceState>,
         new: VoiceState,
     ) {
-        let msg = MessageBuilder::new()
-            .push(if let Some(u) = &new.member {
-                &u.user.name
-            } else {
-                "someone"
-            })
-            // oldがSomeならLeave、NoneであればJoin
-            .push(if let Some(_) = old {
-                " leaved "
-            } else {
-                " joined "
-            })
-            // チャンネルIDがなかったら0にする（いいのかな）
-            .channel(if let Some(c) = new.channel_id {
-                c
-            } else {
-                ChannelId(0)
-            })
-            .build();
+        println!("{:?}", ctx.http);
         let data = ctx.data.read().await;
         if let Some(id) = data.get::<LogChannelId>() {
             match id.clone().parse() {
                 Ok(id) => {
                     let ch = ChannelId(id);
-                    if let Err(e) = ch.say(&ctx.http, msg).await {
+                    let channel_name = ch.name(ctx.cache.as_ref()).await;
+                    let channel_name = channel_name.unwrap_or("Unknown channel".to_string());
+                    if let Err(e) = ch
+                        .send_message(&ctx.http, |m: &mut CreateMessage| {
+                            // メッセージ作成
+                            m.embed(|e: &mut CreateEmbed| {
+                                e.title("Voice Channel Notice");
+                                // oldがSomeならLeave、NoneであればJoin
+                                if let Some(_) = old {
+                                    e.description("Someone leaved VC");
+                                    e.color(Colour(0xed2424));
+                                } else {
+                                    e.description("Someone joined VC");
+                                    e.color(Colour(0x2aed24));
+                                }
+                                // アバターの設定
+                                if let Some(u) = &new.member {
+                                    e.field(
+                                        &u.user.name,
+                                        format!("Channel: {}", channel_name),
+                                        false,
+                                    );
+                                    if let Some(avatar) = &u.user.avatar {
+                                        let url = format!(
+                                            "https://cdn.discordapp.com/avatars/{}/{}.webp",
+                                            u.user.id, avatar
+                                        );
+                                        e.thumbnail(url);
+                                    }
+                                } else {
+                                }
+                                e
+                            });
+                            m
+                        })
+                        .await
+                    {
                         println!("ERROR: failed to send an message => {}", e);
                     }
                 }
