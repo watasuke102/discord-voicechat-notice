@@ -36,27 +36,50 @@ impl EventHandler for Handler {
         let data = ctx.data.read().await;
         if let Some(data) = data.get::<Settings>() {
             let data = data.clone();
-            // 設定に記載されたサーバーと違ったら
+            // 設定に記載されたサーバーと違ったら終わり
             if let Some(id) = guild_id {
                 if id != data.guild_id {
                     return;
                 }
             }
+            // 入退出の判定
+            #[derive(PartialEq)]
+            enum Status {
+                Joined,
+                Leaved,
+                Other,
+            }
+            // oldがSomeかつnewのchannel_idがNoneであればLeave
+            // oldがNoneであればJoin
+            let status = if let Some(_) = old {
+                if let None = &new.channel_id {
+                    Status::Leaved
+                } else {
+                    Status::Other
+                }
+            } else {
+                Status::Joined
+            };
+            // ミュートされただけ等であれば終わり
+            if status == Status::Other {
+                return;
+            }
+            // チャンネル名の取得
             let ch = ChannelId(data.log_channel_id);
             let channel_name = ch.name(ctx.cache.as_ref()).await;
             let channel_name = channel_name.unwrap_or("Unknown channel".to_string());
+            // メッセージをビルド・送信
             if let Err(e) = ch
                 .send_message(&ctx.http, |m: &mut CreateMessage| {
                     // メッセージ作成
                     m.embed(|e: &mut CreateEmbed| {
                         e.title("Voice Channel Notice");
-                        // oldがSomeならLeave、NoneであればJoin
-                        if let Some(_) = old {
-                            e.description("Someone leaved VC");
-                            e.color(Colour(0xed2424));
-                        } else {
+                        if status == Status::Joined {
                             e.description("Someone joined VC");
                             e.color(Colour(0x2aed24));
+                        } else {
+                            e.description("Someone leaved VC");
+                            e.color(Colour(0xed2424));
                         }
                         // アバターの設定
                         if let Some(u) = &new.member {
