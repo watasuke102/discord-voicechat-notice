@@ -65,10 +65,15 @@ impl EventHandler for Handler {
                 return;
             }
             // チャンネル名の取得
-            let ch = ChannelId(data.log_channel_id);
-            let channel_name = ch.name(ctx.cache.as_ref()).await;
-            let channel_name = channel_name.unwrap_or("Unknown channel".to_string());
+            let unknown_message = "Unknown channel".to_string();
+            let channel_name = if let Some(id) = new.channel_id {
+                let channel_name = id.name(ctx.cache.as_ref()).await;
+                channel_name.unwrap_or(unknown_message)
+            } else {
+                unknown_message
+            };
             // メッセージをビルド・送信
+            let ch = ChannelId(data.log_channel_id);
             if let Err(e) = ch
                 .send_message(&ctx.http, |m: &mut CreateMessage| {
                     // メッセージ作成
