@@ -51,22 +51,23 @@ impl EventHandler for Handler {
             }
             // oldがSomeかつnewのchannel_idがNoneであればLeave
             // oldがNoneであればJoin
-            let status = if let Some(_) = old {
+            // leaveの場合はold、Joinの場合はnewからチャンネルIDを得る
+            let (status, channel_id) = if let Some(old) = old {
                 if let None = &new.channel_id {
-                    Status::Leaved
+                    (Status::Leaved, old.channel_id)
                 } else {
-                    Status::Other
+                    (Status::Other, old.channel_id)
                 }
             } else {
-                Status::Joined
+                (Status::Joined, new.channel_id)
             };
             // ミュートされただけ等であれば終わり
             if status == Status::Other {
                 return;
             }
-            // チャンネル名の取得
+            // チャンネル名を取得
             let unknown_message = "Unknown channel".to_string();
-            let channel_name = if let Some(id) = new.channel_id {
+            let channel_name = if let Some(id) = channel_id {
                 let channel_name = id.name(ctx.cache.as_ref()).await;
                 channel_name.unwrap_or(unknown_message)
             } else {
@@ -99,6 +100,7 @@ impl EventHandler for Handler {
                         } else {
                             e.field("Unknown user", format!("Channel: {}", channel_name), false);
                         }
+                        // タイムゾーンをJSTに変更した現在時刻をタイムスタンプに使用
                         e.timestamp(&Utc::now().with_timezone(&FixedOffset::east(9 * 3600)));
                         e
                     });
