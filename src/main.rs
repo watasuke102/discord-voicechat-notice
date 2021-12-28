@@ -89,7 +89,7 @@ impl EventHandler for Handler {
                                 e.color(Colour(0xed2424));
                             }
                             // アバターの設定
-                            e.field(&u.user.name, format!("Channel: {}", channel_name), false);
+                            e.field("Channel", channel_name, false);
                             if let Some(avatar) = &u.user.avatar {
                                 let url = format!(
                                     "https://cdn.discordapp.com/avatars/{}/{}.webp",
