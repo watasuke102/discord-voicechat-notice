@@ -80,15 +80,15 @@ impl EventHandler for Handler {
                     // メッセージ作成
                     m.embed(|e: &mut CreateEmbed| {
                         e.title("Voice Channel Notice");
-                        if status == Status::Joined {
-                            e.description("Someone joined VC");
-                            e.color(Colour(0x2aed24));
-                        } else {
-                            e.description("Someone leaved VC");
-                            e.color(Colour(0xed2424));
-                        }
-                        // アバターの設定
                         if let Some(u) = &new.member {
+                            if status == Status::Joined {
+                                e.description(format!("{} joined VC", &u.user.name));
+                                e.color(Colour(0x2aed24));
+                            } else {
+                                e.description(format!("{} leaved VC", &u.user.name));
+                                e.color(Colour(0xed2424));
+                            }
+                            // アバターの設定
                             e.field(&u.user.name, format!("Channel: {}", channel_name), false);
                             if let Some(avatar) = &u.user.avatar {
                                 let url = format!(
