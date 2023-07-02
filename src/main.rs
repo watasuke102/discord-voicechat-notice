@@ -5,13 +5,13 @@
 // Email  : <watasuke102@gmail.com>
 // Twitter: @Watasuke102
 // This software is released under the MIT SUSHI-WARE License.
-use chrono::{FixedOffset, Utc};
+use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 use serenity::{
     async_trait,
     builder::{CreateEmbed, CreateMessage},
     framework::StandardFramework,
-    model::{gateway::Ready, id::ChannelId, id::GuildId, voice::VoiceState},
+    model::{gateway::Ready, id::ChannelId, voice::VoiceState, Timestamp},
     prelude::*,
     utils::Colour,
 };
@@ -26,21 +26,16 @@ impl EventHandler for Handler {
             ready.user.name, ready.version
         );
     }
-    async fn voice_state_update(
-        &self,
-        ctx: Context,
-        guild_id: Option<GuildId>,
-        old: Option<VoiceState>,
-        new: VoiceState,
-    ) {
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let data = ctx.data.read().await;
         if let Some(data) = data.get::<Settings>() {
-            let data = data.clone();
+            let Some(guild_id) = new.guild_id else {
+                return;
+            };
             // 設定に記載されたサーバーと違ったら終わり
-            if let Some(id) = guild_id {
-                if id != data.guild_id {
-                    return;
-                }
+            let data = data.clone();
+            if guild_id != data.guild_id {
+                return;
             }
             // 入退出の判定
             #[derive(PartialEq)]
@@ -101,7 +96,7 @@ impl EventHandler for Handler {
                             e.field("Unknown user", format!("Channel: {}", channel_name), false);
                         }
                         // タイムゾーンをJSTに変更した現在時刻をタイムスタンプに使用
-                        e.timestamp(&Utc::now().with_timezone(&FixedOffset::east(9 * 3600)));
+                        e.timestamp(Timestamp::now().with_timezone(&FixedOffset::east(9 * 3600)));
                         e
                     });
                     m
@@ -142,11 +137,14 @@ async fn main() {
         }
     }
     // クライアント生成と設定の読み込み
-    let mut client = Client::builder(&settings.discord_token)
-        .event_handler(Handler)
-        .framework(StandardFramework::new())
-        .await
-        .expect("ERROR: failed to create client");
+    let mut client = Client::builder(
+        &settings.discord_token,
+        GatewayIntents::GUILDS | GatewayIntents::GUILD_VOICE_STATES,
+    )
+    .event_handler(Handler)
+    .framework(StandardFramework::new())
+    .await
+    .expect("ERROR: failed to create client");
     {
         let mut data = client.data.write().await;
         data.insert::<Settings>(Arc::new(settings));
