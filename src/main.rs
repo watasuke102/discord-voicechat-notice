@@ -68,6 +68,17 @@ impl EventHandler for Handler {
             } else {
                 unknown_message
             };
+            // ユーザー名を取得、ニックネームが使用不可ならユーザー名
+            // FIXME: display_nameがユーザーIDになってしまう　上流（nextブランチ）のrelease待ち
+            let user_name = if let Some(u) = &new.member {
+                if let Some(nick_name) = u.user.nick_in(&ctx, guild_id).await {
+                    nick_name.clone()
+                } else {
+                    u.display_name().to_string()
+                }
+            } else {
+                "Unknown user".to_string()
+            };
             // メッセージをビルド・送信
             let ch = ChannelId(data.log_channel_id);
             if let Err(e) = ch
@@ -77,14 +88,13 @@ impl EventHandler for Handler {
                         e.title("Voice Channel Notice");
                         if let Some(u) = &new.member {
                             if status == Status::Joined {
-                                e.description(format!("{} joined VC", &u.user.name));
+                                e.description(format!("`{}` joined VC", user_name));
                                 e.color(Colour(0x2aed24));
                             } else {
-                                e.description(format!("{} leaved VC", &u.user.name));
+                                e.description(format!("`{}` leaved VC", user_name));
                                 e.color(Colour(0xed2424));
                             }
                             // アバターの設定
-                            e.field("Channel", channel_name, false);
                             if let Some(avatar) = &u.user.avatar {
                                 let url = format!(
                                     "https://cdn.discordapp.com/avatars/{}/{}.webp",
@@ -92,9 +102,8 @@ impl EventHandler for Handler {
                                 );
                                 e.thumbnail(url);
                             }
-                        } else {
-                            e.field("Unknown user", format!("Channel: {}", channel_name), false);
                         }
+                        e.field("Channel", channel_name, false);
                         // タイムゾーンをJSTに変更した現在時刻をタイムスタンプに使用
                         e.timestamp(Timestamp::now().with_timezone(&FixedOffset::east(9 * 3600)));
                         e
