@@ -194,6 +194,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "discord-vc-notice"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "serenity",
+ "tokio",
+]
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1371,17 +1382,6 @@ name = "wasm-bindgen-shared"
 version = "0.2.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0237232789cf037d5480773fe568aac745bfe2afbc11a863e97901780a6b47cc"
-
-[[package]]
-name = "watasuke-bot"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "serenity",
- "tokio",
-]
 
 [[package]]
 name = "web-sys"
