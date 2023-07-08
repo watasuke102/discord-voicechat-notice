@@ -88,10 +88,10 @@ impl EventHandler for Handler {
                         e.title("Voice Channel Notice");
                         if let Some(u) = &new.member {
                             if status == Status::Joined {
-                                e.description(format!("`{}` joined VC", user_name));
+                                e.description(format!("**{}** joined VC", user_name));
                                 e.color(Colour(0x2aed24));
                             } else {
-                                e.description(format!("`{}` leaved VC", user_name));
+                                e.description(format!("**{}** leaved VC", user_name));
                                 e.color(Colour(0xed2424));
                             }
                             // アバターの設定
