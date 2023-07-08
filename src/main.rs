@@ -105,7 +105,10 @@ impl EventHandler for Handler {
                         }
                         e.field("Channel", channel_name, false);
                         // タイムゾーンをJSTに変更した現在時刻をタイムスタンプに使用
-                        e.timestamp(Timestamp::now().with_timezone(&FixedOffset::east(9 * 3600)));
+                        e.timestamp(
+                            Timestamp::now()
+                                .with_timezone(&FixedOffset::east_opt(9 * 3600).unwrap()),
+                        );
                         e
                     });
                     m
