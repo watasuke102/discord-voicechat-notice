@@ -95,11 +95,7 @@ impl EventHandler for Handler {
                                 e.color(Colour(0xed2424));
                             }
                             // アバターの設定
-                            if let Some(avatar) = &u.user.avatar {
-                                let url = format!(
-                                    "https://cdn.discordapp.com/avatars/{}/{}.webp",
-                                    u.user.id, avatar
-                                );
+                            if let Some(url) = &u.user.avatar_url() {
                                 e.thumbnail(url);
                             }
                         }
